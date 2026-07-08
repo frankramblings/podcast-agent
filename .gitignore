@@ -24,3 +24,4 @@ secrets/
 *.env
 *cookie*.txt
 *token*.json
+.superpowers/
