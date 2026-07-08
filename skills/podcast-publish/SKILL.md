@@ -73,8 +73,8 @@ Use when the user says "let's edit the latest \<show\>", "ship episode N", "publ
 - YouTube: URL loads, scheduled time matches, thumbnail is the Canva one (not YT auto-frame), chapters render.
 - Sanity-check adjacent staged episodes: did we accidentally overwrite a live episode's draft slot?
 
-## Per-show config
-Each show lives in `bin/<show>/` with:
+## Per-show config (target contract — not yet implemented)
+Each show would live in `bin/<show>/` with:
 - `config.json` — cadence weekday, publish time, hosts (audio + video ids), title conventions, thumbnail template design id
 - `content_<N>.json` — per-episode text assets
 
@@ -89,8 +89,6 @@ Each show lives in `bin/<show>/` with:
 8. **Cadence drift on staged eps** — recompute all when inserting/renumbering.
 
 ## Related memories
-- [[bwg-episode-pipeline]]
-- [[fireside-automation]]
-- [[canva-mcp-wired]]
-- [[wistia-iso-feed-download]]
-- [[durable-media-server]]
+These name private workspace memories that are not part of this repo:
+bwg-episode-pipeline, fireside-automation, canva-mcp-wired,
+wistia-iso-feed-download, durable-media-server.
