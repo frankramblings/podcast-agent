@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+# bwg — one orchestrator for a Beer With Geeks episode.
+#
+# The video track used to mean copy-paste-editing render_tonight.py and then
+# eyeballing the master by hand. This wraps render -> VERIFY (hard gate) ->
+# share so a master only ships if lip-sync actually passes.
+#
+#   bwg prep   <hashed_id>                 # text track: transcript + ep# + chapters
+#   bwg render <feeds_dir> [--proof|--full] [--out NAME]
+#                                          # render, then gate on verify_video PASS
+#   bwg verify <feeds_dir> <master.mp4>    # standalone lip-sync QA
+#
+# render defaults to --proof (opening 2 min) so you confirm the gate is green
+# before committing to the ~16-min full render. On PASS it auto-shares and
+# prints the :8011 URL; on FAIL it refuses to share and reports the worst lag.
+set -euo pipefail
+
+WS="$HOME/.openclaw/workspace"
+DIR="$WS/.tmp/openclaw-spikes/podcast-director"
+TOL="0.12"   # PASS tolerance in seconds (matches verify_video.py / EBU R37)
+GOLDEN="$WS/media/wistia-feeds/44njfqvjjv"   # 566: known-good regression feeds
+
+die() { echo "bwg: $*" >&2; exit 1; }
+
+# largest .mp4 in $1 whose name contains all remaining args
+biggest() {
+  local d="$1"; shift
+  local best="" bestsz=0 f sz n ok
+  for f in "$d"/*.mp4; do
+    [ -f "$f" ] || continue
+    n="$(basename "$f")"; ok=1
+    for pat in "$@"; do [[ "$n" == *"$pat"* ]] || ok=0; done
+    [ "$ok" = 1 ] || continue
+    sz=$(stat -c%s "$f")
+    (( sz > bestsz )) && { bestsz=$sz; best="$f"; }
+  done
+  [ -n "$best" ] && printf '%s\n' "$best"
+}
+
+cmd_prep() {
+  [ $# -ge 1 ] || die "usage: bwg prep <hashed_id>"
+  exec "$WS/bin/bwg-prep" "$@"
+}
+
+# auto-mint the Wistia export + resumable pull of the ISO feeds. The mint
+# (GraphQL bulkDownloadRecordStreams -> poll -> signed URL) and the resumable
+# download both live in wistia-pull-feeds.py; this is the orchestrator entry.
+# Needs the long-lived session cookie in secrets/wistia_cookie.txt (one manual
+# credential, refreshed only when it expires).
+cmd_pull() {
+  [ $# -ge 1 ] || die "usage: bwg pull <hashed_id> [--account SUB]"
+  local id="$1"; shift
+  ( cd "$WS" && python3 bin/wistia-pull-feeds.py "$id" "$@" )
+  echo "feeds -> $WS/media/wistia-feeds/$id"
+}
+
+# full push-button: mint+pull -> render full -> verify gate -> share
+cmd_episode() {
+  [ $# -ge 1 ] || die "usage: bwg episode <hashed_id> [--account SUB]"
+  local id="$1"; shift
+  cmd_pull "$id" "$@"
+  cmd_render "$WS/media/wistia-feeds/$id" --full
+}
+
+# run verify_video, echo its table, return 0 only on PASS
+gate() {
+  local feeds="$1" master="$2" comp cut out
+  comp="$(biggest "$feeds" composite)" || true
+  [ -n "${comp:-}" ] || die "no *composite*.mp4 in $feeds"
+  cut="$feeds/dyn_cutlist.json"
+  [ -f "$cut" ] || die "no dyn_cutlist.json in $feeds (render must run first)"
+  echo "── verify: $(basename "$master") vs $(basename "$comp") ──"
+  out="$(cd "$DIR" && python3 verify_video.py --master "$master" --comp "$comp" --cutlist "$cut")"
+  echo "$out"
+  grep -q "PASS" <<<"$out"
+}
+
+cmd_verify() {
+  [ $# -ge 2 ] || die "usage: bwg verify <feeds_dir> <master.mp4>"
+  local feeds="$1" master="$2"
+  [ -d "$feeds" ] || die "no such feeds dir: $feeds"
+  feeds="$(cd "$feeds" && pwd)"
+  [[ "$master" == /* ]] || master="$feeds/$master"
+  gate "$feeds" "$master" && echo "✅ PASS" || { echo "❌ FAIL — not shippable"; exit 1; }
+}
+
+cmd_render() {
+  [ $# -ge 1 ] || die "usage: bwg render <feeds_dir> [--proof|--full] [--out NAME]"
+  local feeds="$1"; shift
+  [ -d "$feeds" ] || die "no such feeds dir: $feeds"
+  feeds="$(cd "$feeds" && pwd)"
+  local mode="proof" out=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --proof) mode="proof";;
+      --full)  mode="full";;
+      --out)   out="$2"; shift;;
+      *) die "unknown arg: $1";;
+    esac; shift
+  done
+  local a=0 b=120
+  [ "$mode" = full ] && b=0
+  [ -n "$out" ] || out="master_${mode}.mp4"
+
+  echo "▶ render ($mode) feeds=$(basename "$feeds") out=$out"
+
+  # Live progress: log render output to a file, tail it with bin/bwg-progress in
+  # the foreground (takes over the terminal). Also writes the workspace task
+  # schema at share/tasks/<id>/progress.json — the PWA polls that and injects a
+  # live status row into the message that started this render.
+  mkdir -p "$WS/tmp" "$WS/share/bwg" "$WS/share/tasks"
+  local ts="$(date +%s)"
+  local log="$WS/tmp/bwg-render-$ts.log"
+  local task_id="bwg-render-$(basename "$feeds")-$ts"
+  local task_label="BwG render: $(basename "$feeds") ($mode)"
+  ( cd "$DIR" && python3 render_ep.py --feeds "$feeds" --out "$out" --a "$a" --b "$b" ) > "$log" 2>&1 &
+  local rpid=$!
+  # background render, foreground progress. --wait 10 covers the startup race.
+  "$WS/bin/bwg-progress" \
+    --log "$log" \
+    --json "$WS/share/bwg/progress.json" \
+    --task-id "$task_id" \
+    --task-label "$task_label" \
+    --task-kind render \
+    --wait 10 --interval 1 || true
+  wait "$rpid"; local rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "❌ render_ep.py exited $rc — last 40 lines:"
+    tail -40 "$log"
+    # mark task failed so the PWA row surfaces the error
+    python3 -c "
+import json, os, sys
+p = os.path.expanduser('~/.openclaw/workspace/share/tasks/$task_id/progress.json')
+try:
+    d = json.load(open(p))
+    d['status'] = 'failed'
+    d['error'] = 'render_ep.py exited $rc'
+    open(p, 'w').write(json.dumps(d))
+except Exception as e:
+    sys.exit(0)
+" || true
+    exit $rc
+  fi
+
+  local master="$feeds/$out"
+  [ -f "$master" ] || die "render produced no master at $master"
+
+  echo
+  if gate "$feeds" "$master"; then
+    echo "✅ PASS (worst lag ≤ ${TOL}s) — sharing"
+    "$WS/bin/share" "$master" bwg
+  else
+    echo "❌ FAIL — lip-sync gate did not pass; NOT sharing."
+    echo "   Inspect the table above; re-render or widen per-cut search before shipping."
+    exit 1
+  fi
+}
+
+# regression test: import every core module, render a short window on the
+# golden feeds, and require the lip-sync gate to PASS. Catches silent render
+# breakage (e.g. the shutil-shadow UnboundLocalError that exited 0 with no
+# output) and any sync regression. Does not share.
+cmd_test() {
+  local feeds="${1:-$GOLDEN}"
+  [ -d "$feeds" ] || die "golden feeds missing: $feeds"
+  feeds="$(cd "$feeds" && pwd)"
+  echo "▶ bwg test — golden=$(basename "$feeds")"
+  echo "── 1/3 import all core modules ──"
+  ( cd "$DIR" && python3 -c "import render_ep,render_full,render_full2,vidsync,vidsync_map,verify_video,syncfit,chunks,gate,render_real" ) \
+    || die "core modules failed to import"
+  echo "   ok"
+  echo "── 2/3 render 120s window ──"
+  ( cd "$DIR" && python3 render_ep.py --feeds "$feeds" --out master_test.mp4 --a 0 --b 120 ) >/tmp/bwg_test_render.log 2>&1 \
+    || { tail -5 /tmp/bwg_test_render.log; die "render failed"; }
+  grep -q DYNDONE /tmp/bwg_test_render.log || die "render did not reach DYNDONE (silent break?)"
+  [ -f "$feeds/master_test.mp4" ] || die "render produced no master"
+  echo "   ok (DYNDONE, master written)"
+  echo "── 3/3 lip-sync gate ──"
+  if gate "$feeds" "$feeds/master_test.mp4"; then
+    rm -f "$feeds/master_test.mp4"
+    echo "🟢 GREEN — pipeline renders and passes lip-sync"
+  else
+    rm -f "$feeds/master_test.mp4"
+    die "🔴 RED — gate did not PASS on golden feeds (sync regression)"
+  fi
+}
+
+case "${1:-}" in
+  prep)    shift; cmd_prep    "$@";;
+  pull)    shift; cmd_pull    "$@";;
+  episode) shift; cmd_episode "$@";;
+  render)  shift; cmd_render  "$@";;
+  verify)  shift; cmd_verify  "$@";;
+  test)    shift; cmd_test    "$@";;
+  *) cat >&2 <<EOF
+bwg — Beer With Geeks episode orchestrator
+  bwg prep    <hashed_id>                        text assets prep
+  bwg pull    <hashed_id> [--account SUB]        auto-mint + resumable ISO-feed pull
+  bwg episode <hashed_id> [--account SUB]         pull -> render full -> verify -> share
+  bwg render  <feeds_dir> [--proof|--full] [--out NAME]   render + verify gate + share
+  bwg verify  <feeds_dir> <master.mp4>           standalone lip-sync QA
+  bwg test    [feeds_dir]                         regression: render+gate on golden 566
+EOF
+    exit 2;;
+esac

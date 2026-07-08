@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""
+bwg-prep — one-command gathering step for a Beer With Geeks episode.
+
+Given a Wistia hashed id (the composite/main recording), this pulls everything
+the copy pass needs and drops it in a staging folder:
+
+  * Full transcript (Wistia auto-captions VTT + plain text)
+  * Runtime
+  * Next episode number (read live from the Fireside feed)
+  * Timestamped ~45s reading blocks
+  * A chapter-timestamp scaffold (evenly seeded; you retitle the beats)
+
+It does NOT write the marketing copy — titles/show-notes/description are the
+judgment part and stay with Gary. This just removes all the fetching/typing.
+
+Usage:
+    bin/bwg-prep <hashed_id> [--out DIR]
+
+Example:
+    bin/bwg-prep jdcxvxzvdm
+"""
+import sys, os, re, json, argparse, urllib.request
+
+FEED = "https://beerwithgeeks.fireside.fm/rss"
+CAP  = "http://fast.wistia.net/embed/captions/{}.vtt"
+
+def fetch(url, timeout=30):
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    return urllib.request.urlopen(req, timeout=timeout).read().decode("utf-8", "replace")
+
+def next_episode_number():
+    try:
+        x = fetch(FEED)
+        nums = [int(m) for m in re.findall(r"<title>\s*(\d+):", x)]
+        return max(nums) + 1 if nums else None
+    except Exception as e:
+        return None
+
+def parse_vtt(vtt):
+    cues = []
+    cur = None
+    for line in vtt.splitlines():
+        m = re.match(r"(\d\d):(\d\d):(\d\d)\.\d+ --> ", line)
+        if m:
+            cur = int(m.group(1))*3600 + int(m.group(2))*60 + int(m.group(3))
+        elif line.strip() and not line.startswith("WEBVTT") and cur is not None:
+            cues.append((cur, line.strip()))
+    return cues
+
+def blocks(cues, span=45):
+    out = []
+    bstart = None; buf = []
+    for t, txt in cues:
+        if bstart is None: bstart = t
+        if t - bstart >= span and buf:
+            out.append((bstart, " ".join(buf))); buf = []; bstart = t
+        buf.append(txt)
+    if buf: out.append((bstart, " ".join(buf)))
+    return out
+
+def ts(sec): return f"{sec//60:02d}:{sec%60:02d}"
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("hashed_id")
+    ap.add_argument("--out", default=None)
+    a = ap.parse_args()
+
+    outdir = a.out or os.path.expanduser(f"~/.openclaw/workspace/artifacts/bwg-{a.hashed_id}")
+    os.makedirs(outdir, exist_ok=True)
+
+    print(f"→ fetching captions for {a.hashed_id} …")
+    vtt = fetch(CAP.format(a.hashed_id))
+    if "WEBVTT" not in vtt:
+        sys.exit("!! no captions returned — media may still be transcribing on Wistia, or wrong id")
+    open(f"{outdir}/captions.vtt", "w").write(vtt)
+
+    cues = parse_vtt(vtt)
+    runtime = ts(cues[-1][0]) if cues else "?"
+    words = sum(len(t.split()) for _, t in cues)
+
+    # plain text
+    open(f"{outdir}/transcript.txt", "w").write(" ".join(t for _, t in cues))
+
+    # timestamped reading blocks
+    blk = blocks(cues)
+    with open(f"{outdir}/blocks.txt", "w") as f:
+        for t, txt in blk:
+            f.write(f"[{ts(t)}] {txt}\n")
+
+    # chapter scaffold — seed a marker at each block start; retitle by hand
+    with open(f"{outdir}/chapters_scaffold.txt", "w") as f:
+        for t, _ in blk:
+            f.write(f"{ts(t)} \n")
+
+    epno = next_episode_number()
+
+    summary = {
+        "hashed_id": a.hashed_id,
+        "next_episode": epno,
+        "runtime": runtime,
+        "word_count": words,
+        "outdir": outdir,
+        "files": ["captions.vtt", "transcript.txt", "blocks.txt", "chapters_scaffold.txt"],
+    }
+    open(f"{outdir}/summary.json", "w").write(json.dumps(summary, indent=2))
+
+    print(json.dumps(summary, indent=2))
+    print(f"\n✓ staged in {outdir}")
+    print(f"  next episode: #{epno} · runtime {runtime} · {words} words")
+    print("  → hand blocks.txt to Gary to write the asset suite.")
+
+if __name__ == "__main__":
+    main()

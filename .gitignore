@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+
+# never commit media artifacts to a code repo
+*.mp4
+*.mp3
+*.wav
+*.m4a
+*.png
+*.jpg
+*.jpeg
+
+# never commit logs or per-episode scratch
+*.log
+tmp/
+.tmp/
+share/
+
+# never commit secrets
+secrets/
+*.env
+*cookie*.txt
+*token*.json
