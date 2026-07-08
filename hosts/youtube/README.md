@@ -2,15 +2,14 @@
 
 Working YouTube uploader, extracted from Frank's BwG workflow.
 
-**State: extracted as-is. `upload.mjs` is the show-agnostic version; the two
-per-episode variants are kept as reference until the config surface stabilizes.**
+**State: extracted as-is. `upload.mjs` is the show-agnostic version.**
 
 ## Files
 
-- `upload.mjs` — the generalized uploader.
-- `upload-566.mjs`, `upload-567.mjs` — per-episode variants. Compare against
-  `upload.mjs` when lifting the config surface to see which knobs actually vary
-  in practice.
+- `upload.mjs` — the uploader. Pure YouTube Data API v3 (auth / whoami / upload /
+  update / thumb / comment / schedule subcommands). No browser automation — the
+  per-episode Puppeteer variants this replaced live only in git history; they were
+  exactly the "Puppeteer-before-API" failure mode SKILL.md documents.
 
 ## What's hardcoded (must lift into config)
 

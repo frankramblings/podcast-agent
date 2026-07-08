@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""BwG YouTube thumbnail in Frank's Canva house style.
+"""BwG YouTube thumbnail — pure ImageMagick compositing (no Canva calls).
 
 Layout: full-bleed movie key art (background) + tilted yellow box (foreground)
-with black bold-italic condensed caps, matches thumb_569/570_canva.jpg.
+with black bold-italic condensed caps, in the show's Canva-derived house style.
 """
 import argparse, subprocess, sys, tempfile, os
 
@@ -30,7 +30,7 @@ def main():
     ap.add_argument("--pointsize", type=int, default=88)
     a = ap.parse_args()
 
-    td = tempfile.mkdtemp(prefix="bwgthumb567_")
+    td = tempfile.mkdtemp(prefix="bwgthumb_")
 
     # 1) Base: center-crop art to 1280x720
     base = f"{td}/base.jpg"

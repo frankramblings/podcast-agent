@@ -5,6 +5,10 @@ Historical iterations of the sync + render pipeline. Not the current path —
 behind the working algorithm and shouldn't be lost when the workspace scratch
 dir is cleaned up.
 
+Files here are archaeology — kept to show how the sync model was derived. They are
+not runnable in place (several import modules that now live in `../` or hardcode
+old workspace paths).
+
 ## The sync algorithm (why PHAT files matter)
 
 The lip-sync gate in `../verify_video.py` is built on **GCC-PHAT** (Generalized
@@ -16,11 +20,6 @@ like a black box.
 
 ## The render iteration chain
 
-- `render_full.py` — first full-episode chunk-aware render. Docstring
-  documents the sync model (GCC-PHAT offsets applied as `+offset` seeks).
-- `render_full2.py` — v2. Dynamic multicam: "pepper the two-shot in
-  tastefully, AutoPod-style." Real product logic, not throwaway.
-- `render_real.py` — an intermediate rev.
 - `render_tonight.py` — episode-specific driver for BwG jdcxvxzvdm
   (2026-06-30). Repointed `render_full` / `render_full2` at that night's
   feeds. Shows how the pipeline was actually invoked before `bin/bwg`

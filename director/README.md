@@ -42,19 +42,26 @@ Locked-in taste setting: `--min-gap 12 --two-len 1.6` → ~10% two-shot.
 
 ## Files
 
-- `chunks.py`      — chunk resolver + per-chunk offset probe (GCC-PHAT).
-- `offset.py`      — envelope cross-correlation sync finder.
-- `gate.py`        — competitive gating detector.
-- `render_real.py` — shot-grammar + (base) assembler.
-- `render_full.py` — full/windowed render: sync model, gap handling, frame-exact
-                     assembly. `--a/--b` window, `--b 0` = full episode.
-- `render_full2.py`— dynamic-two-shot Director (imports render_full). Main entry
-                     for the current deliverable.
+- `render_ep.py`    — current entry point: feed discovery + episode render driver.
+- `render_full.py`  — full/windowed render: sync model, gap handling, frame-exact
+                      assembly. `--a/--b` window, `--b 0` = full episode.
+- `render_full2.py` — dynamic-two-shot Director layer (imports render_full).
+- `render_real.py`  — shot-grammar + base assembler.
+- `chunks.py`       — chunk resolver + per-chunk offset probe (GCC-PHAT).
+- `gate.py`         — competitive gating detector.
+- `syncfit.py`      — robust offset-model fitting (the sync core).
+- `vidsync.py` / `vidsync_map.py` — video-side sync mapping.
+- `verify_video.py` — the lip-sync verification gate (EBU R37 tolerance, 0.12 s).
+- `legacy/`         — the archaeology that led here; kept for reference, not runnable
+                      in place (see legacy/README.md).
 
 ## Run
 
-    # full episode, locked settings
-    python3 render_full2.py --a 0 --b 0 --min-gap 12 --two-len 1.6 --out master.mp4
+    # full episode via the current entry point
+    python3 render_ep.py --feeds <feeds_dir> --out master.mp4 --a 0 --b 0
+
+    # or through the orchestrator (adds the verify gate):
+    ../bin/bwg render <feeds_dir> --full
 
 ## Known next steps
 

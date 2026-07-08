@@ -9,7 +9,6 @@ Working Fireside publisher, extracted from Frank's BwG spike dir.
 - `publish.mjs` — end-to-end flow: login → find-or-create draft → fill fields → schedule → verify. From `ship567.mjs`.
 - `login.mjs` — reusable login helper.
 - `attach-audio.mjs` — audio-file upload / attachment flow. From `audio565.mjs`.
-- `verify.mjs` — post-publish read-back verification. From `verify_final.mjs`.
 - `list-episodes.mjs` — episode list scraper.
 
 ## What's hardcoded (must lift into a config object)
