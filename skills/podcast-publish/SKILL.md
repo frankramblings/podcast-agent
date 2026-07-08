@@ -8,7 +8,7 @@ date: "2026-07-08T03:59:05.264Z"
 
 # podcast-publish
 
-Use when the user says "let's edit the latest \<show\>", "ship episode N", "publish this to \<host\> and YouTube", or walks a recording from raw feeds to scheduled release. Show-agnostic — configuration lives in `bin/<show>/`.
+Use when the user says "let's edit the latest \<show\>", "ship episode N", "publish this to \<host\> and YouTube", or walks a recording from raw feeds to scheduled release. Show-agnostic by design — per-show configuration would live in `bin/<show>/` (target contract, not yet implemented).
 
 ## Phase gates (do NOT skip; each is a checkpoint)
 

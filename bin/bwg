@@ -6,9 +6,12 @@
 # share so a master only ships if lip-sync actually passes.
 #
 #   bwg prep   <hashed_id>                 # text track: transcript + ep# + chapters
+#   bwg pull   <hashed_id> [--account SUB] # auto-mint + resumable ISO-feed pull
+#   bwg episode <hashed_id> [--account SUB] # pull -> render full -> verify -> share
 #   bwg render <feeds_dir> [--proof|--full] [--out NAME]
 #                                          # render, then gate on verify_video PASS
 #   bwg verify <feeds_dir> <master.mp4>    # standalone lip-sync QA
+#   bwg test   [feeds_dir]                 # regression: render+gate on golden feeds
 #
 # render defaults to --proof (opening 2 min) so you confirm the gate is green
 # before committing to the ~16-min full render. On PASS it shares via

@@ -65,7 +65,7 @@ Locked-in taste setting: `--min-gap 12 --two-len 1.6` → ~10% two-shot.
 
 ## Known next steps
 
-- Auto-pull intake from Wistia (reverse-engineer the per-feed zip download).
+- ~~Auto-pull intake from Wistia~~ — done; see `../bin/wistia-pull-feeds.py` and `bwg pull`.
 - Content-edit conform: after audio edit in Audition, ripple the single switched
   track to the edited timeline.
 - Optional: tune shot balance (currently Tim-heavy on this episode).

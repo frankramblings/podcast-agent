@@ -25,3 +25,4 @@ secrets/
 *cookie*.txt
 *token*.json
 .superpowers/
+docs/superpowers/

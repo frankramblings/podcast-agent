@@ -4,11 +4,11 @@
 // SEPARATE refresh token for the BWG channel so no other Google token is touched.
 //
 // SSH-friendly consent (localhost redirect that won't load; copy the `code`):
-//   node bin/youtube-upload.mjs auth               -> prints consent URL
-//   node bin/youtube-upload.mjs auth --code XXX    -> exchanges + saves token
-//   node bin/youtube-upload.mjs whoami             -> prints authorized channel
-//   node bin/youtube-upload.mjs upload <file> <content.json> [--privacy private|unlisted|public]
-//   node bin/youtube-upload.mjs update <videoId> <content.json>   -> patch title/desc/tags of a live video
+//   node hosts/youtube/upload.mjs auth               -> prints consent URL
+//   node hosts/youtube/upload.mjs auth --code XXX    -> exchanges + saves token
+//   node hosts/youtube/upload.mjs whoami             -> prints authorized channel
+//   node hosts/youtube/upload.mjs upload <file> <content.json> [--privacy private|unlisted|public]
+//   node hosts/youtube/upload.mjs update <videoId> <content.json>   -> patch title/desc/tags of a live video
 //
 // content.json fields: title, description, keywords (comma str), tag_list (unused).
 // Prefer a YOUTUBE-NATIVE metadata file (e.g. *_youtube.json) for both upload+update
