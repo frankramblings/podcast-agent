@@ -1,0 +1,7 @@
+{
+  "title": "Magic Jungle Potion",
+  "subtitle": "One-line teaser shown on the episode page.",
+  "description": "Full show notes in Markdown. No 'Ep N:' prefix in the title — Fireside numbers episodes automatically.",
+  "keywords": "comma, separated, keywords",
+  "tag_list": "comma, separated, tags"
+}
