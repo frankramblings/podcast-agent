@@ -12,7 +12,7 @@ the copy pass needs and drops it in a staging folder:
   * A chapter-timestamp scaffold (evenly seeded; you retitle the beats)
 
 It does NOT write the marketing copy — titles/show-notes/description are the
-judgment part and stay with Gary. This just removes all the fetching/typing.
+judgment part and stay human. This just removes all the fetching/typing.
 
 Usage:
     bin/bwg-prep <hashed_id> [--out DIR]
@@ -109,7 +109,7 @@ def main():
     print(json.dumps(summary, indent=2))
     print(f"\n✓ staged in {outdir}")
     print(f"  next episode: #{epno} · runtime {runtime} · {words} words")
-    print("  → hand blocks.txt to Gary to write the asset suite.")
+    print("  → hand blocks.txt to whoever writes the asset suite.")
 
 if __name__ == "__main__":
     main()

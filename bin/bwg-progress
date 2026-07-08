@@ -157,7 +157,7 @@ def main():
         # Stall detection — the render (or any wrapped writer) can die silently
         # (shutil-shadow class of bugs, oom kills, PTY teardowns). If the log
         # hasn't been touched in a while and we still think we're running,
-        # surface it as failed so Gary and Frank both see the failure.
+        # surface it as failed so Frank and other operators see the failure.
         try:
             log_age = time.time() - os.path.getmtime(log)
         except OSError:

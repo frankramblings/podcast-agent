@@ -7,9 +7,9 @@ timestamp. For each one-shot segment in the cutlist we xcorr motion series
 (master full-frame vs composite tile) over +/-search seconds; the peak lag is
 the video placement error of that segment. 0 within a frame or two = good.
 
-This is the video analog of measure_output.py (which verifies audio and which
-historically read 14ms while lips were >1s off -- audio verification does NOT
-cover video placement; this does).
+This is the video analog of the old measure_output.py audio check (now only in
+git history), which historically read 14ms while lips were >1s off -- audio
+verification does NOT cover video placement; this does.
 
 Usage:
   verify_video.py --master <master.mp4> --comp <composite.mp4> \

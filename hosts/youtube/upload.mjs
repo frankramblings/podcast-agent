@@ -12,7 +12,7 @@
 //
 // content.json fields: title, description, keywords (comma str), tag_list (unused).
 // Prefer a YOUTUBE-NATIVE metadata file (e.g. *_youtube.json) for both upload+update
-// so the channel never gets the podcast RSS copy. See BWG-EPISODE-RUNBOOK.md.
+// so the channel never gets the podcast RSS copy verbatim.
 import { google } from 'googleapis';
 import fs from 'node:fs';
 
@@ -45,7 +45,7 @@ if (cmd === 'auth') {
   if (ci === -1) {
     const url = o.generateAuthUrl({ access_type: 'offline', prompt: 'consent', scope: SCOPES });
     console.log('REDIRECT URI:', redirect);
-    console.log('\n=== Sign in as beerwithgeeks@gmail.com, approve, then copy the `code` from the localhost URL ===\n');
+    console.log('\n=== Sign in with the channel Google account, approve, then copy the `code` from the localhost URL ===\n');
     console.log(url + '\n');
   } else {
     const code = rest[ci + 1];
