@@ -11,12 +11,14 @@
 #   bwg verify <feeds_dir> <master.mp4>    # standalone lip-sync QA
 #
 # render defaults to --proof (opening 2 min) so you confirm the gate is green
-# before committing to the ~16-min full render. On PASS it auto-shares and
-# prints the :8011 URL; on FAIL it refuses to share and reports the worst lag.
+# before committing to the ~16-min full render. On PASS it shares via
+# $WS/bin/share when that exists (workspace-specific); on FAIL it refuses to
+# ship and reports the worst lag.
 set -euo pipefail
 
-WS="$HOME/.openclaw/workspace"
-DIR="$WS/.tmp/openclaw-spikes/podcast-director"
+WS="${PODCAST_WS:-$HOME/.openclaw/workspace}"   # data: feeds, secrets, tmp, progress cards
+REPO="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+DIR="$REPO/director"
 TOL="0.12"   # PASS tolerance in seconds (matches verify_video.py / EBU R37)
 GOLDEN="$WS/media/wistia-feeds/44njfqvjjv"   # 566: known-good regression feeds
 
@@ -39,7 +41,7 @@ biggest() {
 
 cmd_prep() {
   [ $# -ge 1 ] || die "usage: bwg prep <hashed_id>"
-  exec "$WS/bin/bwg-prep" "$@"
+  exec "$REPO/bin/bwg-prep" "$@"
 }
 
 # auto-mint the Wistia export + resumable pull of the ISO feeds. The mint
@@ -50,7 +52,7 @@ cmd_prep() {
 cmd_pull() {
   [ $# -ge 1 ] || die "usage: bwg pull <hashed_id> [--account SUB]"
   local id="$1"; shift
-  ( cd "$WS" && python3 bin/wistia-pull-feeds.py "$id" "$@" )
+  ( cd "$WS" && python3 "$REPO/bin/wistia-pull-feeds.py" "$id" "$@" )
   echo "feeds -> $WS/media/wistia-feeds/$id"
 }
 
@@ -116,7 +118,7 @@ cmd_render() {
   ( cd "$DIR" && python3 render_ep.py --feeds "$feeds" --out "$out" --a "$a" --b "$b" ) > "$log" 2>&1 &
   local rpid=$!
   # background render, foreground progress. --wait 10 covers the startup race.
-  "$WS/bin/bwg-progress" \
+  "$REPO/bin/bwg-progress" \
     --log "$log" \
     --json "$WS/share/bwg/progress.json" \
     --task-id "$task_id" \
@@ -128,17 +130,17 @@ cmd_render() {
     echo "❌ render_ep.py exited $rc — last 40 lines:"
     tail -40 "$log"
     # mark task failed so the PWA row surfaces the error
-    python3 -c "
-import json, os, sys
-p = os.path.expanduser('~/.openclaw/workspace/share/tasks/$task_id/progress.json')
+    P="$WS/share/tasks/$task_id/progress.json" RC="$rc" python3 - <<'PYEOF' || true
+import json, os
+p = os.environ["P"]
 try:
     d = json.load(open(p))
-    d['status'] = 'failed'
-    d['error'] = 'render_ep.py exited $rc'
-    open(p, 'w').write(json.dumps(d))
-except Exception as e:
-    sys.exit(0)
-" || true
+    d["status"] = "failed"
+    d["error"] = "render_ep.py exited " + os.environ["RC"]
+    open(p, "w").write(json.dumps(d))
+except Exception:
+    pass
+PYEOF
     exit $rc
   fi
 
@@ -147,8 +149,13 @@ except Exception as e:
 
   echo
   if gate "$feeds" "$master"; then
-    echo "✅ PASS (worst lag ≤ ${TOL}s) — sharing"
-    "$WS/bin/share" "$master" bwg
+    echo "✅ PASS (worst lag ≤ ${TOL}s)"
+    if [ -x "$WS/bin/share" ]; then
+      "$WS/bin/share" "$master" bwg
+    else
+      echo "master: $master"
+      echo "(no \$WS/bin/share — sharing is workspace-specific; distribute the master however you like)"
+    fi
   else
     echo "❌ FAIL — lip-sync gate did not pass; NOT sharing."
     echo "   Inspect the table above; re-render or widen per-cut search before shipping."
@@ -164,15 +171,17 @@ cmd_test() {
   local feeds="${1:-$GOLDEN}"
   [ -d "$feeds" ] || die "golden feeds missing: $feeds"
   feeds="$(cd "$feeds" && pwd)"
+  local tlog
+  tlog="$(mktemp -t bwg_test_render.XXXXXX)"
   echo "▶ bwg test — golden=$(basename "$feeds")"
   echo "── 1/3 import all core modules ──"
   ( cd "$DIR" && python3 -c "import render_ep,render_full,render_full2,vidsync,vidsync_map,verify_video,syncfit,chunks,gate,render_real" ) \
     || die "core modules failed to import"
   echo "   ok"
   echo "── 2/3 render 120s window ──"
-  ( cd "$DIR" && python3 render_ep.py --feeds "$feeds" --out master_test.mp4 --a 0 --b 120 ) >/tmp/bwg_test_render.log 2>&1 \
-    || { tail -5 /tmp/bwg_test_render.log; die "render failed"; }
-  grep -q DYNDONE /tmp/bwg_test_render.log || die "render did not reach DYNDONE (silent break?)"
+  ( cd "$DIR" && python3 render_ep.py --feeds "$feeds" --out master_test.mp4 --a 0 --b 120 ) >"$tlog" 2>&1 \
+    || { tail -5 "$tlog"; die "render failed"; }
+  grep -q DYNDONE "$tlog" || die "render did not reach DYNDONE (silent break?)"
   [ -f "$feeds/master_test.mp4" ] || die "render produced no master"
   echo "   ok (DYNDONE, master written)"
   echo "── 3/3 lip-sync gate ──"
