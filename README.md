@@ -71,8 +71,7 @@ Episode-metadata shapes: `hosts/*/content.example.json`.
 
 ## What "ready" would look like
 
-The bar for calling this reusable: a second show runs through it end-to-end in
-under two days of work. The known lifts, in rough order: per-show config
-(`bin/<show>/config.json` per SKILL.md), de-hardcoding the two-host assumptions
-in `director/`, an API path for the audio host, and generalizing the thumbnail
-branding. Today it's a working pipeline for one show, shipping weekly.
+The known lifts, in rough order: per-show config (`bin/<show>/config.json` per
+SKILL.md), de-hardcoding the two-host assumptions in `director/`, an API path
+for the audio host, and generalizing the thumbnail branding. Today it's a
+working pipeline for one show, shipping weekly.
