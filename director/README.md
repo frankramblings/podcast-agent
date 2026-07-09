@@ -55,6 +55,14 @@ Locked-in taste setting: `--min-gap 12 --two-len 1.6` → ~10% two-shot.
 - `legacy/`         — the archaeology that led here; kept for reference, not runnable
                       in place (see legacy/README.md).
 
+Coverage note: `render_ep.py` always models Frank as ONE continuous chunk
+(camera backup preferred), so that's the path `bwg test` regresses. The
+multi-chunk machinery (`parse_chunks`, per-chunk offsets, gap regions) is
+dormant — nothing builds a multi-entry `CHUNKS` list since the historical
+`real/chunks/` layout went away. It goes live (and needs a chunk-boundary
+test window) the day an episode arrives with a dropped camera and no
+continuous backup.
+
 ## Run
 
     # full episode via the current entry point
