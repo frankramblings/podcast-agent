@@ -12,6 +12,8 @@ node_modules/
 *.png
 *.jpg
 *.jpeg
+# ...but docs screenshots are docs, not media artifacts
+!docs/verify-gate.png
 
 # never commit logs or per-episode scratch
 *.log

@@ -39,6 +39,11 @@ Long renders write live progress cards ([`bin/bwg-progress`](bin/bwg-progress),
 [`bin/bwg-splice-progress.py`](bin/bwg-splice-progress.py)) — a small JSON
 contract any dashboard can poll.
 
+What the gate looks like when it lets an episode through (`bwg test` on the
+golden feeds — five one-shots cross-correlated against the composite clock):
+
+![Terminal output of bwg test: module imports ok, 120-second render ok, then the lip-sync gate table with five one-shot segments all OK — median +0.000s, worst 0.012s, PASS, GREEN](docs/verify-gate.png)
+
 ## Status — what's real vs scaffolding
 
 | Component | State |
