@@ -43,10 +43,10 @@ Locked-in taste setting: `--min-gap 12 --two-len 1.6` → ~10% two-shot.
 ## Files
 
 - `render_ep.py`    — current entry point: feed discovery + episode render driver.
-- `render_full.py`  — full/windowed render: sync model, gap handling, frame-exact
-                      assembly. `--a/--b` window, `--b 0` = full episode.
-- `render_full2.py` — dynamic-two-shot Director layer (imports render_full).
-- `render_real.py`  — shot-grammar + base assembler.
+- `assemble.py`     — full/windowed render core: sync model, gap handling,
+                      frame-exact assembly. `--a/--b` window, `--b 0` = full episode.
+- `twoshot.py`      — dynamic-two-shot Director layer (drives assemble).
+- `shot_grammar.py` — shot-grammar + base assembler.
 - `chunks.py`       — chunk resolver + per-chunk offset probe (GCC-PHAT).
 - `gate.py`         — competitive gating detector.
 - `syncfit.py`      — robust offset-model fitting (the sync core).

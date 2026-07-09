@@ -3,7 +3,7 @@
 Apply shot-grammar to competitive-gate states and render a real angle-switched
 master from the three synced streams.
 
-    python3 render_real.py gate.json --frank A.mp4 --tim B.mp4 --composite C.mp4
+    python3 shot_grammar.py gate.json --frank A.mp4 --tim B.mp4 --composite C.mp4
                            --fps 30 --min-shot 1.2 --hangover 0.6 --out master.mp4
 
 who -> stream:  frank->frank cam, tim->tim cam, both/nobody->composite (safe wide).

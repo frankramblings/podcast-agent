@@ -3,28 +3,33 @@
 Dynamic Director (v2) — pepper the two-shot in tastefully, AutoPod-style.
 
 Reuses the validated v1 sync model (per-chunk Frank offsets, Tim linear fit,
-composite clock) from render_full. The ONLY change is the grammar: instead of a
+composite clock) from assemble. The ONLY change is the grammar: instead of a
 pure who's-loudest one-shot machine, it layers three two-shot behaviors. Two-shot
 == composite, which is always in sync, so dynamism costs zero sync risk.
 
 Knobs (all CLI):
-  --overlap   dB: both above floor and within this of each other -> two-shot.
-  --max-solo  s : a one-shot longer than this gets broken by a two-shot insert.
-  --two-len   s : length of an inserted/break two-shot.
-  --floor     dBFS speech floor.
+  --overlap      dB: both above floor and within this of each other -> two-shot.
+  --min-gap      s : breather two-shot becomes eligible this long after the last
+                     one, then fires at the next natural pause.
+  --two-len      s : length of an inserted two-shot.
+  --react-margin dB / --react-min s: the listener above floor+margin for at
+                     least this long during a solo -> reaction two-shot.
+  --floor        dBFS speech floor.
 
 Usage:
-  render_full2.py --a 1000 --b 1240 --out dyn_test.mp4
-  render_full2.py --a 0 --b 0 --out master_dynamic.mp4
+  twoshot.py --a 1000 --b 1240 --out dyn_test.mp4
+  twoshot.py --a 0 --b 0 --out master_dynamic.mp4
 """
 import os, subprocess, tempfile, json, argparse, shutil, atexit
 import numpy as np
-import render_full as rf
+import assemble
 from chunks import pcm, gcc_phat, SR
 from gate import decode_pcm, rms_db_track, smooth
-from render_real import grammar
+from shot_grammar import grammar
 
-HOP = rf.HOP; FPS = rf.FPS; COMP = rf.COMP; TIM = rf.TIM; CHUNKS = rf.CHUNKS
+# episode state (COMP/TIM/CHUNKS/R) is read off the assemble module at call
+# time so assemble.configure() reaches both layers; only true constants copy.
+HOP = assemble.HOP; FPS = assemble.FPS
 
 def run(c): return subprocess.run(c, capture_output=True, text=True)
 
@@ -35,7 +40,7 @@ def gate_energy(a, b, toff_fn, frank_src=None, frank_seek=None):
     atexit.register(shutil.rmtree, tmp, ignore_errors=True)
     tw = f"{tmp}/t.wav"
     run(["ffmpeg","-y","-loglevel","error","-ss",f"{a+toff_fn(a):.3f}","-t",f"{span:.3f}",
-         "-i",TIM,"-vn","-ac","1","-ar","44100",tw])
+         "-i",assemble.TIM,"-vn","-ac","1","-ar","44100",tw])
     tm = rms_db_track(decode_pcm(tw,8000,None,None),8000,HOP)
     if frank_src is not None:
         fw = f"{tmp}/f.wav"
@@ -113,7 +118,7 @@ def breather(states, fr, tm, min_gap, two_len, floor, quiet_margin=6.0, hard_mul
         i += 1
     return out, inserted
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--a", type=float, default=0.0)
     ap.add_argument("--b", type=float, default=0.0)
@@ -124,17 +129,17 @@ def main():
     ap.add_argument("--two-len", type=float, default=1.8)
     ap.add_argument("--react-margin", type=float, default=10.0)  # other > floor+this = reaction
     ap.add_argument("--react-min", type=float, default=0.2)
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
-    total = rf.dur(COMP)
+    total = assemble.dur(assemble.COMP)
     A = args.a; B = args.b if args.b > 0 else total
     print(f"window [{A:.1f},{B:.1f}]  overlap={args.overlap}dB min_gap={args.min_gap}s two_len={args.two_len}s", flush=True)
 
-    toff_fn, tf = rf.tim_fit(total)
-    rf.assemble_full.toff = toff_fn
+    toff_fn, tf = assemble.tim_fit(total)
+    assemble.assemble_full.toff = toff_fn
     print(f"Tim seg0 off(t)={tf[0]:+.5f}*t{tf[1]:+.3f} splices={[round(s) for s in tf[3]]}", flush=True)
-    for ch in CHUNKS:
-        ch["off_fn"], finfo = rf.frank_fit(ch, total)
+    for ch in assemble.CHUNKS:
+        ch["off_fn"], finfo = assemble.frank_fit(ch, total)
         mid = (max(ch["start"], A) + min(ch["end"], B)) / 2.0
         ch["off"] = ch["off_fn"](mid)   # scalar approx for energy gating only
         print(f"  chunk {ch['start']}-{ch['end']} off@mid={ch['off']:+.3f} "
@@ -142,7 +147,7 @@ def main():
 
     # regions
     regions = []; prev = A
-    for ch in CHUNKS:
+    for ch in assemble.CHUNKS:
         cs, ce = max(ch["start"],A), min(ch["end"],B)
         if cs >= ce: continue
         if cs > prev: regions.append((prev,cs,None))
@@ -173,9 +178,9 @@ def main():
     pct = {k: f"{100*v/tot:.0f}%" for k,v in air.items()}
     print(f"{len(states)} frames -> {len(segs)} shots; airtime={air} ({pct})", flush=True)
     json.dump({"window":[A,B],"knobs":vars(args),"airtime":air,"segs":segs},
-              open(f"{rf.R}/dyn_cutlist.json","w"), indent=2)
-    rf.assemble_full(segs, A, B, f"{rf.R}/{args.out}")
-    print(f"wrote {rf.R}/{args.out}", flush=True)
+              open(f"{assemble.R}/dyn_cutlist.json","w"), indent=2)
+    assemble.assemble_full(segs, A, B, f"{assemble.R}/{args.out}")
+    print(f"wrote {assemble.R}/{args.out}", flush=True)
     print("DYNDONE", flush=True)
 
 if __name__ == "__main__":

@@ -17,20 +17,32 @@ original via input-seek (fast + frame-accurate) and concatenated. Audio bed =
 composite for the rendered window.
 
 Usage:
-    render_full.py --a 0 --b 0 --out master_full.mp4      # full episode (b=0 => end)
-    render_full.py --a 420 --b 560 --out seamtest.mp4     # windowed gap-crossing test
+    assemble.py --a 0 --b 0 --out master_full.mp4      # full episode (b=0 => end)
+    assemble.py --a 420 --b 560 --out seamtest.mp4     # windowed gap-crossing test
 """
 import os, subprocess, json, tempfile, sys, argparse, shutil, atexit
 import numpy as np
 from chunks import parse_chunks, gcc_phat, pcm, SR
 from gate import decode_pcm, rms_db_track, decide, smooth
-from render_real import grammar
+from shot_grammar import grammar
 import syncfit
 
 R = "real"
 COMP = f"{R}/composite.mp4"; TIM = f"{R}/tim_cam.mp4"
 FPS = 30.0; HOP = 0.05
 CHUNKS = parse_chunks()
+
+def configure(comp, tim, chunks, root, tim_voff=None, percut=None):
+    """Point the render at an episode's feeds — the API render_ep.py drives.
+    The module-level defaults above only serve the historical standalone
+    `real/` layout. tim_voff/percut hook video-map placement into
+    assemble_full (audio offsets place audio only; see src_for)."""
+    global COMP, TIM, CHUNKS, R
+    COMP, TIM, CHUNKS, R = comp, tim, chunks, root
+    if tim_voff is not None:
+        assemble_full.tim_voff = tim_voff
+    if percut is not None:
+        assemble_full.percut = percut
 
 def run(c): return subprocess.run(c, capture_output=True, text=True)
 
@@ -230,12 +242,12 @@ def assemble_full(segs, A, B, out):
             return
     shutil.move(main_mp4, out)   # /tmp and real/ may be separate fs (shutil imported at module top)
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--a", type=float, default=0.0)
     ap.add_argument("--b", type=float, default=0.0)   # 0 => composite end
     ap.add_argument("--out", default="master_full.mp4")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     total = dur(COMP)
     A = args.a; B = args.b if args.b > 0 else total
     print(f"composite duration {total:.1f}s; rendering window [{A:.1f}, {B:.1f}]", flush=True)

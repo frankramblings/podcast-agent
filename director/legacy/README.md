@@ -21,9 +21,9 @@ like a black box.
 ## The render iteration chain
 
 - `render_tonight.py` — episode-specific driver for BwG jdcxvxzvdm
-  (2026-06-30). Repointed `render_full` / `render_full2` at that night's
-  feeds. Shows how the pipeline was actually invoked before `bin/bwg`
-  wrapped it.
+  (2026-06-30). Repointed `render_full` / `render_full2` (today's
+  `../assemble.py` / `../twoshot.py`) at that night's feeds. Shows how the
+  pipeline was actually invoked before `bin/bwg` wrapped it.
 - `render_chunks.py` — chunk-boundary renderer, precursor to `../chunks.py`.
 - `director.py` — the historical **root**. `bin/bwg`'s docstring literally
   refers back to this as "used to mean copy-paste-editing render_tonight.py."
